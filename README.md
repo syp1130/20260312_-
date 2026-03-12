@@ -40,15 +40,16 @@
 
 4. **Deploy** 후 배포 URL로 접속 → 비밀번호 입력 후 사용
 
-## Git 자동 업데이트
+## Git 새로고침(동기화)
 
-- **한 번에 반영**: 프로젝트 폴더에서 **`업데이트.bat`** 더블클릭 → 변경 사항 자동 add + commit + push
-- **커밋 시 자동 푸시**: 이미 `post-commit` 훅이 설정되어 있으면, `git commit`만 해도 자동으로 `git push origin main` 실행됨  
-  (다른 PC에서 클론한 경우: `scripts/post-commit` 내용을 `.git/hooks/post-commit` 로 복사하면 동일하게 사용 가능)
+- **가장 확실한 방법**: 프로젝트 폴더에서 **`업데이트.bat`** 더블클릭  
+  → 원격 최신 내용 가져오기(pull) + 변경 사항 추가 + 커밋 + GitHub로 푸시(push)
+- **저장소 주소**: `https://github.com/syp1130/20260312_1.git` (변경 시 푸시가 안 되면 이 주소로 설정되어 있는지 확인)
+- 터미널에서 `git commit` 후에는 post-commit 훅으로 자동 푸시 시도. **Cursor/IDE에서만 커밋**한 경우 훅이 안 돌 수 있으므로 **반드시 `업데이트.bat` 한 번 실행**하면 GitHub에 반영됨.
 
 ## 저장소
 
-- GitHub: https://github.com/syp1130/20260312_-.git
+- GitHub: https://github.com/syp1130/20260312_1.git
 
 ## 설정
 
