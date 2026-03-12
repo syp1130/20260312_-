@@ -9,8 +9,10 @@ except ImportError:
     pass
 import os
 import json
-from flask import Flask, request, render_template, jsonify, redirect, url_for, session
+from flask import Flask, request, render_template, jsonify, redirect, url_for, session, send_file
 from werkzeug.utils import secure_filename
+from io import BytesIO
+import pandas as pd
 
 from config import DEFAULT_EXCEL_PATH, SENDER_EMAIL, TEAM_PASSWORD, SESSION_SECRET
 from inventory import (
@@ -239,6 +241,28 @@ def api_send_orders():
             )
             results.append({"supplier": supplier_name, "to": to_email, "ok": ok, "message": msg})
         return jsonify({"results": results})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/export-inventory", methods=["POST"])
+def api_export_inventory():
+    """현재 품목 목록을 Excel 파일로 내보내기 (새 품목 포함 저장용)."""
+    data = request.get_json() or {}
+    items = data.get("items") or []
+    if not items:
+        return jsonify({"error": "저장할 품목이 없습니다."}), 400
+    try:
+        df = pd.DataFrame(items)
+        buffer = BytesIO()
+        df.to_excel(buffer, index=False, sheet_name="Inventory", engine="openpyxl")
+        buffer.seek(0)
+        return send_file(
+            buffer,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            as_attachment=True,
+            download_name="inventory_export.xlsx",
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

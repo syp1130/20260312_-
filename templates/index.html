@@ -155,6 +155,18 @@
     #webInputTable th { color: var(--dominos-blue); font-weight: 600; background: #f8f9fa; }
     #webInputWrap { overflow-x: auto; margin-top: 10px; }
     .mode-hint { font-size: 0.85rem; color: var(--muted); margin-top: 8px; }
+    .btn-row { margin-top: 10px; }
+    .modal-overlay { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-overlay.show { display: flex; }
+    .modal-box { background: #fff; border-radius: 12px; padding: 24px; max-width: 480px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+    .modal-box h3 { margin: 0 0 16px 0; color: var(--dominos-red); font-size: 1.1rem; }
+    .form-row { margin-bottom: 12px; }
+    .form-row label { display: block; margin-bottom: 4px; font-size: 0.85rem; color: var(--muted); }
+    .form-row input { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; }
+    .form-row input:focus { outline: none; border-color: var(--dominos-red); }
+    .modal-actions { margin-top: 20px; display: flex; gap: 10px; }
+    .modal-actions button { flex: 1; }
+    .modal-actions button.secondary { background: var(--muted); }
   </style>
 </head>
 <body>
@@ -175,8 +187,12 @@
       <h2>1. 데이터 입력</h2>
       <div class="input-section">
         <h3>웹에서 재고 입력</h3>
-        <button type="button" id="btnLoadMaster" class="secondary">기준 데이터 불러오기</button>
-        <p class="mode-hint">엑셀 기준 데이터를 불러온 뒤, 아래 표에서 현재재고만 수정할 수 있습니다.</p>
+        <div class="btn-row">
+          <button type="button" id="btnLoadMaster" class="secondary">기준 데이터 불러오기</button>
+          <button type="button" id="btnAddItem" class="secondary">➕ 새 품목 추가</button>
+          <button type="button" id="btnExportExcel" class="secondary">📥 현재 목록 Excel 저장</button>
+        </div>
+        <p class="mode-hint">기준 데이터를 불러오거나 새 품목을 추가한 뒤, 아래 표에서 현재재고를 입력하세요.</p>
         <div id="webInputWrap" style="display:none;">
           <table id="webInputTable">
             <thead><tr id="webInputHead"></tr></thead>
@@ -214,6 +230,58 @@
     </div>
   </div>
 
+  <div id="modalAddItem" class="modal-overlay">
+    <div class="modal-box">
+      <h3>➕ 새 품목 추가</h3>
+      <form id="formAddItem">
+        <div class="form-row">
+          <label>품목코드 *</label>
+          <input type="text" name="품목코드" required placeholder="예: ING011">
+        </div>
+        <div class="form-row">
+          <label>재료명 *</label>
+          <input type="text" name="재료명" required placeholder="예: 할라피뇨">
+        </div>
+        <div class="form-row">
+          <label>규격</label>
+          <input type="text" name="규격" placeholder="예: 1kg">
+        </div>
+        <div class="form-row">
+          <label>단위 *</label>
+          <input type="text" name="단위" required placeholder="예: 개, 팩, 봉">
+        </div>
+        <div class="form-row">
+          <label>안전재고 *</label>
+          <input type="number" name="안전재고" required min="0" value="10">
+        </div>
+        <div class="form-row">
+          <label>MOQ(최소주문수량) *</label>
+          <input type="number" name="MOQ" required min="0" value="1">
+        </div>
+        <div class="form-row">
+          <label>거래처 *</label>
+          <input type="text" name="거래처" required placeholder="예: 도미노푸드서플라이">
+        </div>
+        <div class="form-row">
+          <label>알림담당자</label>
+          <input type="text" name="알림담당자" placeholder="예: 점포 운영매니저">
+        </div>
+        <div class="form-row">
+          <label>거래처이메일 *</label>
+          <input type="email" name="거래처이메일" required placeholder="supplier@example.com">
+        </div>
+        <div class="form-row">
+          <label>리드타임(일)</label>
+          <input type="number" name="리드타임(일)" min="0" value="2" placeholder="2">
+        </div>
+        <div class="modal-actions">
+          <button type="button" id="btnCloseModal" class="secondary">취소</button>
+          <button type="submit">추가</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     let lastExcelPath = null;
     let lastSummary = null;
@@ -235,6 +303,71 @@
         document.getElementById('webInputWrap').style.display = 'block';
       } catch (e) {
         errEl.textContent = '요청 실패: ' + e.message;
+      }
+    };
+
+    document.getElementById('btnAddItem').onclick = function () {
+      document.getElementById('modalAddItem').classList.add('show');
+    };
+    document.getElementById('btnCloseModal').onclick = function () {
+      document.getElementById('modalAddItem').classList.remove('show');
+    };
+    document.getElementById('modalAddItem').onclick = function (e) {
+      if (e.target === this) document.getElementById('modalAddItem').classList.remove('show');
+    };
+
+    document.getElementById('formAddItem').onsubmit = function (e) {
+      e.preventDefault();
+      var fd = new FormData(this);
+      var row = {
+        품목코드: fd.get('품목코드') || '',
+        재료명: fd.get('재료명') || '',
+        규격: fd.get('규격') || '',
+        단위: fd.get('단위') || '',
+        현재재고: 0,
+        안전재고: parseInt(fd.get('안전재고'), 10) || 0,
+        MOQ: parseInt(fd.get('MOQ'), 10) || 0,
+        거래처: fd.get('거래처') || '',
+        알림담당자: fd.get('알림담당자') || '',
+        거래처이메일: fd.get('거래처이메일') || '',
+        '리드타임(일)': parseInt(fd.get('리드타임(일)'), 10) || 0
+      };
+      masterItems.push(row);
+      renderWebInputTable(masterItems);
+      document.getElementById('webInputWrap').style.display = 'block';
+      document.getElementById('modalAddItem').classList.remove('show');
+      this.reset();
+    };
+
+    document.getElementById('btnExportExcel').onclick = async function () {
+      var items = getItemsFromWebInput();
+      if (!items || items.length === 0) {
+        items = masterItems.map(function(r) {
+          var o = Object.assign({}, r);
+          if (o['현재재고'] === undefined) o['현재재고'] = 0;
+          return o;
+        });
+      }
+      if (!items.length) {
+        alert('저장할 품목이 없습니다. 기준 데이터를 불러오거나 새 품목을 추가하세요.');
+        return;
+      }
+      try {
+        const r = await fetch('/api/export-inventory', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: items })
+        });
+        if (r.status === 401) { window.location.href = '/login'; return; }
+        if (!r.ok) { alert('내보내기 실패'); return; }
+        var blob = await r.blob();
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'inventory_export.xlsx';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch (e) {
+        alert('요청 실패: ' + e.message);
       }
     };
 

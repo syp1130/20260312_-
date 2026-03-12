@@ -1,0 +1,4 @@
+#!/bin/sh
+# 이 파일을 .git/hooks/post-commit 로 복사하면 커밋 시 자동 푸시됩니다.
+# Windows: 복사 후 파일명을 post-commit 으로 저장 (확장자 없음)
+git push origin main

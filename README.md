@@ -40,6 +40,12 @@
 
 4. **Deploy** 후 배포 URL로 접속 → 비밀번호 입력 후 사용
 
+## Git 자동 업데이트
+
+- **한 번에 반영**: 프로젝트 폴더에서 **`업데이트.bat`** 더블클릭 → 변경 사항 자동 add + commit + push
+- **커밋 시 자동 푸시**: 이미 `post-commit` 훅이 설정되어 있으면, `git commit`만 해도 자동으로 `git push origin main` 실행됨  
+  (다른 PC에서 클론한 경우: `scripts/post-commit` 내용을 `.git/hooks/post-commit` 로 복사하면 동일하게 사용 가능)
+
 ## 저장소
 
 - GitHub: https://github.com/syp1130/20260312_-.git
