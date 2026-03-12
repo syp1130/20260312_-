@@ -129,6 +129,9 @@
   <div class="container">
     <h1>도미노피자 재고·발주 자동화</h1>
     <p class="sub">웹에서 현재재고를 입력하거나, 엑셀 파일을 업로드해 재고를 분석하고 발주 메일을 보냅니다. (발송 계정: {{ sender_email }})</p>
+    <form method="post" action="{{ url_for('logout') }}" style="margin-bottom:16px;">
+      <button type="submit" class="secondary">로그아웃</button>
+    </form>
 
     <div class="card">
       <h2>1. 데이터 입력</h2>
@@ -183,6 +186,7 @@
       errEl.textContent = '';
       try {
         const r = await fetch('/api/master-inventory');
+        if (r.status === 401) { window.location.href = '/login'; return; }
         const data = await r.json();
         if (!r.ok) {
           errEl.textContent = data.error || '불러오기 실패';
@@ -249,6 +253,7 @@
         var opts = { method: 'POST', body: body };
         if (contentType) opts.headers = { 'Content-Type': contentType };
         const r = await fetch('/api/analyze', opts);
+        if (r.status === 401) { window.location.href = '/login'; return; }
         const data = await r.json();
         if (!r.ok) {
           errEl.textContent = data.error || '분석 실패';
@@ -309,6 +314,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
+        if (r.status === 401) { window.location.href = '/login'; return; }
         const data = await r.json();
         if (!r.ok) {
           resultEl.textContent = data.error || '발송 실패';

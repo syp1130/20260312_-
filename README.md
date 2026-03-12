@@ -4,36 +4,45 @@
 
 ## 기능
 
-- **데이터 입력**: 엑셀 파일 업로드 (또는 기본 `domino_inventory_training.xlsx` 사용)
+- **웹 재고 입력**: 기준 데이터 불러오기 후 현재재고만 입력해 분석
+- **엑셀 업로드**: 엑셀 파일로 재고 분석
 - **재고 분석**: 현재재고 < 안전재고 → 발주 필요, 권장 수량 = MAX(MOQ, 안전재고 - 현재재고)
-- **발주 메일 발송**: 거래처별로 발주서 내용을 **sypark.dpk@gmail.com** 계정으로 발송
+- **발주 메일 발송**: 거래처별로 발주서를 Gmail로 발송
+- **팀 비밀번호**: 배포 시 `TEAM_PASSWORD` 환경변수로 접속 제한
 
-## 실행 방법
+## 로컬 실행
 
-1. 가상환경 권장 후 의존성 설치:
+1. 의존성 설치:
    ```bash
    pip install -r requirements.txt
    ```
 
-2. **Gmail 앱 비밀번호** 설정 (Gmail 2단계 인증 후 [앱 비밀번호](https://myaccount.google.com/apppasswords) 발급):
-   - Windows CMD: `set GMAIL_APP_PASSWORD=발급받은16자리비밀번호`
-   - PowerShell: `$env:GMAIL_APP_PASSWORD="발급받은16자리비밀번호"`
+2. (선택) Gmail 앱 비밀번호: `.env`에 `GMAIL_APP_PASSWORD=...` 또는 환경변수 설정
 
-3. 서버 실행:
+3. (선택) 팀 비밀번호: 환경변수 `TEAM_PASSWORD` 설정 시 로그인 필요. 비우면 비밀번호 없이 접속.
+
+4. 서버 실행:
    ```bash
    python app.py
    ```
+   브라우저에서 http://localhost:5000 접속
 
-4. 브라우저에서 **http://localhost:5000** 접속 후:
-   - 엑셀 업로드(선택) → **재고 분석 실행** → 결과 확인 → **발주 메일 발송**
+## Vercel 배포
 
-## 엑셀 구조 (참고)
+1. [Vercel](https://vercel.com)에 로그인 후 **New Project** → GitHub 저장소 `syp1130/20260312_-` 연결
 
-- **Inventory**: 품목코드, 재료명, 규격, 단위, 현재재고, 안전재고, MOQ, 거래처, 거래처이메일 등
-- **Suppliers**: 거래처명, 담당자, 이메일, 리드타임
-- **EmailTemplate**: 발주 메일 제목/본문 템플릿
+2. **Environment Variables**에 설정:
+   - `TEAM_PASSWORD`: 팀원만 알 수 있는 접속 비밀번호 (필수 권장)
+   - `SESSION_SECRET`: 세션 암호화용 랜덤 문자열 (예: `openssl rand -hex 32`)
+   - `GMAIL_APP_PASSWORD`: Gmail 앱 비밀번호 (발주 메일 발송 시 필요)
+
+3. **Deploy** 후 배포 URL로 접속 → 비밀번호 입력 후 사용
+
+## 저장소
+
+- GitHub: https://github.com/syp1130/20260312_-.git
 
 ## 설정
 
-- 발송 메일 계정: `config.py`의 `SENDER_EMAIL` (기본: sypark.dpk@gmail.com)
+- 발송 메일: `config.py`의 `SENDER_EMAIL`
 - 점포명: `config.py`의 `STORE_NAME`

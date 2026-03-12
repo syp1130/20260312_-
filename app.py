@@ -9,10 +9,10 @@ except ImportError:
     pass
 import os
 import json
-from flask import Flask, request, render_template, jsonify
+from flask import Flask, request, render_template, jsonify, redirect, url_for, session
 from werkzeug.utils import secure_filename
 
-from config import DEFAULT_EXCEL_PATH, SENDER_EMAIL
+from config import DEFAULT_EXCEL_PATH, SENDER_EMAIL, TEAM_PASSWORD, SESSION_SECRET
 from inventory import (
     load_inventory,
     load_email_template,
@@ -24,9 +24,12 @@ from inventory import (
 from email_sender import send_order_email
 
 app = Flask(__name__)
+app.secret_key = SESSION_SECRET
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB
-UPLOAD_FOLDER = Path(__file__).resolve().parent / "uploads"
-UPLOAD_FOLDER.mkdir(exist_ok=True)
+# Vercel 등 서버리스에서는 /tmp 사용 (영구 저장 안 됨)
+_base = Path(__file__).resolve().parent
+UPLOAD_FOLDER = Path("/tmp/inventory_uploads") if os.environ.get("VERCEL") else (_base / "uploads")
+UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = str(UPLOAD_FOLDER)
 ALLOWED_EXTENSIONS = {"xlsx", "xls"}
 
@@ -37,11 +40,44 @@ def allowed_file(filename):
 
 def get_excel_path():
     """사용할 엑셀 파일 경로 (업로드 파일 우선, 없으면 기본)."""
-    # 세션/쿠키 대신 간단히 최근 업로드 파일 사용 가능하도록
-    default = Path(__file__).resolve().parent / DEFAULT_EXCEL_PATH
+    default = _base / DEFAULT_EXCEL_PATH
     if default.exists():
         return str(default)
     return None
+
+
+@app.before_request
+def require_auth():
+    """TEAM_PASSWORD가 설정된 경우 로그인 필수."""
+    if not TEAM_PASSWORD:
+        return None
+    if request.path == url_for("login"):
+        return None
+    if session.get("authenticated"):
+        return None
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "로그인이 필요합니다."}), 401
+    return redirect(url_for("login"))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    """팀 비밀번호 로그인."""
+    if not TEAM_PASSWORD:
+        return redirect(url_for("index"))
+    if request.method == "POST":
+        password = (request.form.get("password") or "").strip()
+        if password == TEAM_PASSWORD:
+            session["authenticated"] = True
+            return redirect(request.args.get("next") or url_for("index"))
+        return render_template("login.html", error="비밀번호가 올바르지 않습니다.")
+    return render_template("login.html", error=None)
+
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.pop("authenticated", None)
+    return redirect(url_for("login"))
 
 
 def _serialize(v):
