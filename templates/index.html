@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>도미노피자 재고·발주 자동화</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --card: #1a2332;
+      --border: #2d3a4f;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #ff6b35;
+      --success: #3fb950;
+      --warning: #d29922;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 24px;
+      line-height: 1.5;
+      word-break: keep-all;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--accent);
+      letter-spacing: -0.02em;
+    }
+    .sub { color: var(--muted); font-size: 0.95rem; margin-bottom: 24px; line-height: 1.6; max-width: 720px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .card h2 { font-size: 1.1rem; margin: 0 0 12px 0; color: var(--text); }
+    label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 0.9rem; }
+    input[type="file"] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px;
+      border-radius: 8px;
+      width: 100%;
+      max-width: 400px;
+    }
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-right: 8px;
+      margin-top: 8px;
+    }
+    button:hover { filter: brightness(1.1); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    button.secondary {
+      background: var(--border);
+      color: var(--text);
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .summary-item {
+      background: var(--bg);
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .summary-item .num { font-size: 1.5rem; font-weight: 700; color: var(--accent); display: block; }
+    .summary-item .label { font-size: 0.85rem; color: var(--muted); display: block; margin-top: 2px; }
+    table {
+      width: 100%;
+      min-width: 960px;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      table-layout: auto;
+    }
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+      white-space: normal;
+      word-break: keep-all;
+      line-height: 1.45;
+    }
+    th { color: var(--muted); font-weight: 600; }
+    td.msg-cell { min-width: 200px; max-width: 320px; }
+    tr:hover { background: rgba(255,255,255,0.03); }
+    .status { font-weight: 600; }
+    .status.need { color: var(--warning); }
+    .status.ok { color: var(--success); }
+    .error { color: #f85149; margin-top: 8px; }
+    .success { color: var(--success); margin-top: 8px; }
+    .email-info { font-size: 0.85rem; color: var(--muted); margin-top: 8px; }
+    #result { display: none; }
+    #result.visible { display: block; }
+    .supplier-list { margin-top: 12px; }
+    .supplier-list div { padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .send-result { margin-top: 8px; font-size: 0.9rem; }
+    .send-result.ok { color: var(--success); }
+    .send-result.fail { color: #f85149; }
+    .input-section { margin-bottom: 20px; }
+    .input-section h3 { font-size: 0.95rem; color: var(--muted); margin: 0 0 10px 0; }
+    input[type="number"].stock { width: 80px; padding: 8px; text-align: right; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; }
+    #webInputTable { width: 100%; min-width: 700px; border-collapse: collapse; font-size: 0.9rem; }
+    #webInputTable th, #webInputTable td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+    #webInputTable th { color: var(--muted); font-weight: 600; }
+    #webInputWrap { overflow-x: auto; margin-top: 10px; }
+    .mode-hint { font-size: 0.85rem; color: var(--muted); margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>도미노피자 재고·발주 자동화</h1>
+    <p class="sub">웹에서 현재재고를 입력하거나, 엑셀 파일을 업로드해 재고를 분석하고 발주 메일을 보냅니다. (발송 계정: {{ sender_email }})</p>
+
+    <div class="card">
+      <h2>1. 데이터 입력</h2>
+      <div class="input-section">
+        <h3>웹에서 재고 입력</h3>
+        <button type="button" id="btnLoadMaster" class="secondary">기준 데이터 불러오기</button>
+        <p class="mode-hint">엑셀 기준 데이터를 불러온 뒤, 아래 표에서 현재재고만 수정할 수 있습니다.</p>
+        <div id="webInputWrap" style="display:none;">
+          <table id="webInputTable">
+            <thead><tr id="webInputHead"></tr></thead>
+            <tbody id="webInputBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="input-section">
+        <h3>또는 엑셀 파일로 분석</h3>
+        <label>재고 엑셀 파일</label>
+        <input type="file" id="file" accept=".xlsx,.xls">
+      </div>
+      <div style="margin-top:16px">
+        <button type="button" id="btnAnalyze">재고 분석 실행</button>
+      </div>
+      <p id="analyzeError" class="error"></p>
+    </div>
+
+    <div id="result" class="card">
+      <h2>2. 분석 결과</h2>
+      <div class="summary-grid" id="summaryGrid"></div>
+      <h3 style="font-size:1rem; margin-bottom:8px">재고 현황</h3>
+      <div style="overflow-x:auto">
+        <table id="inventoryTable">
+          <thead><tr id="inventoryHead"></tr></thead>
+          <tbody id="inventoryBody"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:20px">
+        <button type="button" id="btnSendOrders">발주 메일 발송 (거래처별)</button>
+        <p class="email-info">발송 계정: {{ sender_email }}. GMAIL_APP_PASSWORD 환경변수 설정 필요.</p>
+      </div>
+      <p id="sendResult" class="send-result"></p>
+      <div id="sendDetails" class="supplier-list"></div>
+    </div>
+  </div>
+
+  <script>
+    let lastExcelPath = null;
+    let lastSummary = null;
+    let masterItems = [];
+
+    document.getElementById('btnLoadMaster').onclick = async function () {
+      const errEl = document.getElementById('analyzeError');
+      errEl.textContent = '';
+      try {
+        const r = await fetch('/api/master-inventory');
+        const data = await r.json();
+        if (!r.ok) {
+          errEl.textContent = data.error || '불러오기 실패';
+          return;
+        }
+        masterItems = data.items || [];
+        renderWebInputTable(masterItems);
+        document.getElementById('webInputWrap').style.display = 'block';
+      } catch (e) {
+        errEl.textContent = '요청 실패: ' + e.message;
+      }
+    };
+
+    function renderWebInputTable(items) {
+      if (!items.length) return;
+      const displayCols = ['품목코드', '재료명', '규격', '단위', '안전재고', 'MOQ', '거래처'];
+      const keyCol = '현재재고';
+      document.getElementById('webInputHead').innerHTML = displayCols.map(function(c) { return '<th>' + c + '</th>'; }).join('') + '<th>현재재고 (입력)</th>';
+      document.getElementById('webInputBody').innerHTML = items.map(function(row, i) {
+        var tr = '<tr>';
+        displayCols.forEach(function(c) {
+          var v = row[c];
+          if (v === undefined || v === null) v = '';
+          tr += '<td>' + v + '</td>';
+        });
+        var cur = row[keyCol];
+        if (cur === undefined || cur === null) cur = '';
+        tr += '<td><input type="number" class="stock" min="0" step="1" data-idx="' + i + '" value="' + cur + '"></td></tr>';
+        return tr;
+      }).join('');
+    }
+
+    function getItemsFromWebInput() {
+      if (!masterItems.length) return null;
+      var inputs = document.querySelectorAll('#webInputBody input.stock');
+      var out = [];
+      masterItems.forEach(function(row, i) {
+        var r = Object.assign({}, row);
+        var el = document.querySelector('#webInputBody input.stock[data-idx="' + i + '"]');
+        if (el) r['현재재고'] = el.value === '' ? 0 : parseInt(el.value, 10);
+        if (isNaN(r['현재재고'])) r['현재재고'] = 0;
+        out.push(r);
+      });
+      return out;
+    }
+
+    document.getElementById('btnAnalyze').onclick = async function () {
+      const fileInput = document.getElementById('file');
+      const errEl = document.getElementById('analyzeError');
+      errEl.textContent = '';
+      var body;
+      var contentType;
+      var itemsFromWeb = getItemsFromWebInput();
+      if (itemsFromWeb && itemsFromWeb.length > 0) {
+        body = JSON.stringify({ items: itemsFromWeb });
+        contentType = 'application/json';
+      } else {
+        var form = new FormData();
+        if (fileInput.files && fileInput.files[0]) form.append('file', fileInput.files[0]);
+        body = form;
+        contentType = null;
+      }
+      try {
+        var opts = { method: 'POST', body: body };
+        if (contentType) opts.headers = { 'Content-Type': contentType };
+        const r = await fetch('/api/analyze', opts);
+        const data = await r.json();
+        if (!r.ok) {
+          errEl.textContent = data.error || '분석 실패';
+          return;
+        }
+        lastExcelPath = data.excel_path || null;
+        lastSummary = data.summary || null;
+        renderResult(data);
+        document.getElementById('result').classList.add('visible');
+      } catch (e) {
+        errEl.textContent = '요청 실패: ' + e.message;
+      }
+    };
+
+    function renderResult(data) {
+      const s = data.summary;
+      const grid = document.getElementById('summaryGrid');
+      grid.innerHTML = `
+        <div class="summary-item"><span class="num">${s.total_items}</span><br><span class="label">총 품목 수</span></div>
+        <div class="summary-item"><span class="num">${s.order_items_count}</span><br><span class="label">발주 필요 품목</span></div>
+        <div class="summary-item"><span class="num">${s.total_order_qty}</span><br><span class="label">권장 발주 수량</span></div>
+      `;
+      const list = data.inventory || [];
+      if (list.length === 0) {
+        document.getElementById('inventoryHead').innerHTML = '';
+        document.getElementById('inventoryBody').innerHTML = '<tr><td colspan="10">데이터 없음</td></tr>';
+        return;
+      }
+      const cols = Object.keys(list[0]).filter(k => k && !k.startsWith('Unnamed'));
+      document.getElementById('inventoryHead').innerHTML = cols.map(c => '<th>' + c + '</th>').join('');
+      document.getElementById('inventoryBody').innerHTML = list.map(row =>
+        '<tr>' + cols.map(c => {
+          let v = row[c];
+          if (v === undefined || v === null) v = '';
+          var cls = '';
+          if (c === '상태') cls = 'status ' + (v === '발주 필요' ? 'need' : 'ok');
+          if (c === '담당자알림메시지') cls = (cls ? cls + ' ' : '') + 'msg-cell';
+          return '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + v + '</td>';
+        }).join('') + '</tr>'
+      ).join('');
+    }
+
+    document.getElementById('btnSendOrders').onclick = async function () {
+      if (!lastExcelPath && !lastSummary) {
+        document.getElementById('sendResult').textContent = '먼저 재고 분석을 실행해 주세요.';
+        document.getElementById('sendResult').className = 'send-result fail';
+        return;
+      }
+      const resultEl = document.getElementById('sendResult');
+      const detailsEl = document.getElementById('sendDetails');
+      resultEl.textContent = '발송 중...';
+      resultEl.className = 'send-result';
+      detailsEl.innerHTML = '';
+      var payload = lastExcelPath ? { excel_path: lastExcelPath } : { order_list: lastSummary.order_list, by_supplier: lastSummary.by_supplier };
+      try {
+        const r = await fetch('/api/send-orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await r.json();
+        if (!r.ok) {
+          resultEl.textContent = data.error || '발송 실패';
+          resultEl.className = 'send-result fail';
+          return;
+        }
+        resultEl.textContent = '발송 처리 완료';
+        resultEl.className = 'send-result ok';
+        data.results.forEach(function (x) {
+          const div = document.createElement('div');
+          div.innerHTML = x.supplier + ' → ' + (x.to || '') + ': ' + (x.ok ? '성공' : '실패 - ' + (x.message || ''));
+          div.className = 'send-result ' + (x.ok ? 'ok' : 'fail');
+          detailsEl.appendChild(div);
+        });
+      } catch (e) {
+        resultEl.textContent = '요청 실패: ' + e.message;
+        resultEl.className = 'send-result fail';
+      }
+    };
+  </script>
+</body>
+</html>
