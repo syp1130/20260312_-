@@ -176,7 +176,7 @@
       <p class="sub">웹에서 현재재고를 입력하거나 엑셀을 업로드해 재고를 분석하고 발주 메일을 보냅니다. (발송: {{ sender_email }})</p>
       <div class="logout-wrap">
         <form method="post" action="{{ url_for('logout') }}" style="display:inline;">
-          <button type="submit" class="secondary">로그아웃</button>
+          <button type="submit" class="secondary" title="다시 접속할 때 팀 비밀번호를 입력해야 합니다">🔒 나가기 (다음에 비밀번호로 다시 로그인)</button>
         </form>
       </div>
     </div>
